@@ -1,43 +1,47 @@
 #[macro_use] extern crate lazy_static;
 
-use std::process::{Stdio, Command, Child};
-// use std::fs::File;
 use ansi_term::Colour::*;
-use std::io::{prelude::*, ErrorKind, self};
 use std::net::{SocketAddr, Ipv6Addr, IpAddr, TcpStream};
-use futures::future::{self, Loop};
-use futures::prelude::*;
+use std::io::prelude::*;
+
+static PORT: u16 = 9895;
 
 lazy_static! {
-    static ref DAEMON_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0,0,0,0,0,0,0,1)), 6969);
+    static ref DAEMON_ADDRESS: SocketAddr = SocketAddr::new(
+        IpAddr::V6(
+            Ipv6Addr::new(0,0,0,0,0,0,0,1)
+        ), 
+        PORT
+    );
 }
 
 fn main() {
     #[cfg(windows)]
     unimplemented!();
 
-    println!("{}", Green.paint("This is the command line util for managing MCMGMT"));
-
     println!("{}", Yellow.paint("Connecting to manage-d daemon process"));
-    let mut stream = connect_to_daemon(10);
-    match stream {
-        Some(stream) => {
+    match TcpStream::connect(*DAEMON_ADDRESS) {
+        Ok(mut stream) => {
             println!("{}", Green.paint("Connected"));
+
+            let mut buf = Vec::new();
+            stream.read_to_end(&mut buf).unwrap();
+            // TODO: Parse and seperate messages
+            println!("{:?}", buf);
+            println!("{:?}", bincode::deserialize::<core::protocol::Local>(&buf));
         },
-        None => {
-            println!("{}", Yellow.paint("Daemon not running"));
-            println!("{}", Yellow.paint("Starting manage-d"));
-            let daemon = start_daemon().expect("Child process failed to start.");
+        Err(e) => {
+            let os = os_type::current_platform();
 
-            println!("{}", Green.paint("Started daemon"));
-            println!("pid: {}", daemon.id());
-
-            // Replace with listener for stdout of managed saying "ready"
-            std::thread::sleep_ms(20000);
-
-            println!("{}", Yellow.paint("Connecting to daemon"));
-            let mut stream = connect_to_daemon(20).expect("Failed to connect to running daemon");
-            println!("{}", Green.paint("Connected"));
+            eprintln!("{}", Red.paint(format!("{}", e)));
+            eprintln!("{} {} {}",
+                Yellow.paint("Make sure you have"),
+                Blue.paint("manage-d"),
+                Yellow.paint("downloaded and running as a system daemon"));
+            eprintln!("{} {}",
+                Yellow.paint("For information on how to setup manage-d please visit"),
+                RGB(66, 155, 245).paint(
+                    format!("https://mgmt.dusterthefirst.com/manage-d#{:?}-{}", os.os_type, os.version)));
         }
     };
 
@@ -72,24 +76,4 @@ fn main() {
     // }
     
     // child.forget() No Child Left Behind
-}
-
-fn connect_to_daemon(tries: u8) -> Option<TcpStream> {
-    for n in 0..tries {
-        match TcpStream::connect(*DAEMON_ADDRESS) {
-            Ok(stream) => return Some(stream),
-            Err(e) => eprintln!("{}", e)
-        }
-    }
-
-    None
-}
-
-fn start_daemon() -> io::Result<Child> {
-    Command::new("/Users/DusterTheFirst/Documents/Codes/mcmgmt/target/debug/managed")
-        .arg("6969")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .stdin(Stdio::null())
-        .spawn()
 }

@@ -3,6 +3,6 @@ members = [
     "core",
     "backend",
     "cli",
-    "managed",
+    "manage-d",
     # "web",
 ]
