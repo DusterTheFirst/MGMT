@@ -1,15 +1,15 @@
 #[macro_use] extern crate lazy_static;
 
 use ansi_term::Colour::*;
-use std::net::{SocketAddr, Ipv6Addr, IpAddr, TcpStream};
+use std::net::{SocketAddr, Ipv4Addr, IpAddr, TcpStream};
 use std::io::prelude::*;
 
 static PORT: u16 = 9895;
 
 lazy_static! {
     static ref DAEMON_ADDRESS: SocketAddr = SocketAddr::new(
-        IpAddr::V6(
-            Ipv6Addr::new(0,0,0,0,0,0,0,1)
+        IpAddr::V4(
+            Ipv4Addr::new(127,0,0,1)
         ), 
         PORT
     );

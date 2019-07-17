@@ -5,4 +5,5 @@ members = [
     "cli",
     "manage-d",
     # "web",
+    "mcspoof"
 ]

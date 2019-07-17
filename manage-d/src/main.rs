@@ -1,4 +1,4 @@
-use std::net::{TcpListener, SocketAddr, Ipv6Addr, IpAddr, TcpStream};
+use std::net::{TcpListener, SocketAddr, Ipv4Addr, IpAddr, TcpStream};
 use std::io::prelude::*;
 use std::io;
 use core::protocol;
@@ -44,8 +44,8 @@ fn start() {
     
     let listener = TcpListener::bind(
         SocketAddr::new(
-            IpAddr::V6(
-                Ipv6Addr::new(0,0,0,0,0,0,0,1)
+            IpAddr::V4(
+                Ipv4Addr::new(127,0,0,1)
             ),
             PORT
         )
