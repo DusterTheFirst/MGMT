@@ -8,6 +8,8 @@ use serde::Serialize;
 use serde_json::ser;
 use ansi_term::Color::*;
 
+// TODO: CLEAN UP
+// TODO: DETECT PLAYER JOIN
 fn main() {
     let listener = TcpListener::bind(
         SocketAddr::new(
@@ -67,10 +69,18 @@ fn main() {
                         },
                         players: Players {
                             max: 100,
-                            online: 5,
+                            online: 0,
                             sample: vec![
                                 Player {
-                                    name: String::from("thinkofdeath"),
+                                    name: String::from("§3The server is currently asleep"),
+                                    id: String::from("4566e69f-c907-48ee-8d71-d7ba5aa00d20")
+                                },
+                                Player {
+                                    name: String::from("§2Join now to §dwake it up"),
+                                    id: String::from("4566e69f-c907-48ee-8d71-d7ba5aa00d20")
+                                },
+                                Player {
+                                    name: String::from("§9You can change how your server sleeps in the control panel"),
                                     id: String::from("4566e69f-c907-48ee-8d71-d7ba5aa00d20")
                                 }
                             ]
