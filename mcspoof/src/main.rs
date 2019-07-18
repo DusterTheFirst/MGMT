@@ -1,15 +1,14 @@
 use std::net::{TcpListener, SocketAddr, IpAddr, Ipv4Addr};
 use std::io::prelude::*;
 use std::thread;
-use std::convert::TryInto;
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use serde::Serialize;
 use serde_json::ser;
 use ansi_term::Color::*;
 
 mod proto;
 
-use proto::{ReadPacket, WritePacket, var_int};
+use proto::{ReadPacket, WritePacket, Handshake};
 
 // TODO: CLEAN UP
 // TODO: DETECT PLAYER JOIN
@@ -37,24 +36,18 @@ fn main() {
                     println!("{}", RGB(128, 128, 128).paint("START HANDSHAKE"));
                     
                     // First, the client sends a Handshake packet with its state set to 1.                     
-                    let packet = reader.read_packet().unwrap();
-                    if packet.length == 254 {
+                    let handshake: Handshake = reader.read_handshake().unwrap();
+                    if handshake.packet.length == 254 {
                         println!("{}", Red.paint("LEGACY HANDSHAKE, RETURNING\n\n"));
                         return;
                     }
-                    println!("Length: {:?} bytes", packet.length);
-                    println!("Packet ID: 0x{:02X}", packet.id);
-                    // TODO: do not use as reader
-                    let mut packet_data_buf = packet.data.as_slice();
+                    println!("Length: {:?} bytes", handshake.packet.length);
+                    println!("Packet ID: 0x{:02X}", handshake.packet.id);
                     println!("-- DATA --");
-                    println!("Protocol version: {}", var_int::deserialize(&mut packet_data_buf).unwrap().0);
-                    let address_len = var_int::deserialize(&mut packet_data_buf).unwrap().0;
-                    println!("Address Len: {}", address_len);
-                    let mut buf = vec![0u8; address_len.try_into().unwrap()];
-                    packet_data_buf.read_exact(&mut buf).unwrap();
-                    println!("Address: {}", String::from_utf8_lossy(&buf));
-                    println!("Port: {}", packet_data_buf.read_u16::<BigEndian>().unwrap());
-                    println!("Next State (1 = ping, 2 = connect): {:?}", var_int::deserialize(&mut packet_data_buf).unwrap().0);
+                    println!("Protocol version: {}", handshake.protocol_version);
+                    println!("Address: {}", handshake.address);
+                    println!("Port: {}", handshake.port);
+                    println!("Next State (1 = ping, 2 = connect): {:?}", handshake.next_state);
 
                     println!("{}", RGB(128, 128, 128).paint("END HANDSHAKE\n\n"));
 
@@ -91,7 +84,8 @@ fn main() {
                                     id: String::from("4566e69f-c907-48ee-8d71-d7ba5aa00d20")
                                 }
                             ]
-                        },	
+                        },
+                        // TODO: Keep MOTD and icon of server, just change the version and the players
                         description: Description {
                             text: String::from("                  Join to wake\n"),
                             bold: true,
@@ -115,7 +109,7 @@ fn main() {
                         },
                         favicon: Some("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4wcREyI4l1HM8QAAAPFJREFUeNrt2sENwjAQRNEY0QoNUAINpFYaoAQa4Egh5go+xFoZiC2/uQUpUvZr/yRIXhYRmTkpesMtpfx+fcp51wEe6XOES86hmQ6zbwAAOqCS57LkkQa6F9drZUYKAKAD2t7zre/haKKdVOsECgAweY7lD6M5Xz5P9L8JBQDQAbH05nz5PNHvBAoAoAP2TavzNgAAAMbqgL2dtwEAAPDfDujNeRsAAAC/7YDenbcBAADw3Q4YzXkbAAAAbR3Qm/OtZ5goAIAO2HZ49DNCNgAAADZT9fVaOHfufCBnhSkAwHc7oNYJvWUNzkQBAEREJs4Lb5hUptWWBL4AAAAASUVORK5CYII=".to_owned())
                     }).unwrap();
-                    let response_prefixed = proto::prefix_string(&response);
+                    let response_prefixed = proto::string::write(&response);
                     let written_packet = writer.write_packet(0x00, response_prefixed.as_slice()).unwrap();
                     println!("Size: {} bytes", written_packet.length);
                     println!("Packet ID: 0x{:02X}", written_packet.id);

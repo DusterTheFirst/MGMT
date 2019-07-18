@@ -1,10 +1,10 @@
 use std::io::{self, ErrorKind, Read};
 
 /// Parse in a var int and return the value and its length
-pub fn deserialize<T>(stream: &mut T) -> Result<(i32, i32), io::Error>
+pub fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
     where T: Read {
-    let mut num_read: i32 = 0;
-    let mut result = 0i32;
+    let mut length: i32 = 0;
+    let mut result: i32 = 0;
     let mut read: u8;
 
     while {
@@ -12,21 +12,29 @@ pub fn deserialize<T>(stream: &mut T) -> Result<(i32, i32), io::Error>
         stream.read(&mut buf).unwrap();
         read = buf[0];
         let value = read & 0b0111_1111;
-        result |= (value as i32) << (7 * num_read);
+        result |= (value as i32) << (7 * length);
 
-        num_read += 1;
-        if num_read > 5 {
+        length += 1;
+        if length > 5 {
             return Err(io::Error::new(ErrorKind::InvalidInput, "VarInt is too big"));
         }
 
         (read & 0b1000_0000) != 0
     } {}
 
-    Ok((result, num_read))
+    Ok(VarInt {
+        value: result,
+        length
+    })
+}
+
+pub struct VarInt {
+    pub value: i32,
+    pub length: i32
 }
 
 /// Convert an integer to a var_int
-pub fn serialize(value: i32) -> Vec<u8> {
+pub fn write(value: i32) -> Vec<u8> {
     let mut buf = Vec::new();
     let mut mut_val = value.clone();
 
