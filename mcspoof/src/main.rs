@@ -90,7 +90,7 @@ fn handle_ping(stream: &mut TcpStream) {
     println!("{}", RGB(128, 128, 128).paint("RESPONSE"));
     let response = Response {
         version: Version {
-            name: String::from("Server Alseep"),
+            name: String::from("Server Asleep"),
             protocol: 0
         },
         players: Players {
