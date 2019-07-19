@@ -12,7 +12,7 @@ impl Display for Packet {
         writeln!(f, "Packet Info:")?;
         writeln!(f, "    Length: {:?} bytes", self.length)?;
         writeln!(f, "    ID: 0x{:02X}", self.id)?;
-        writeln!(f, "    Data {:X?}", self.data)?;
+        write!(f, "    Data {:X?}", self.data)?;
 
         Ok(())
     }
@@ -36,7 +36,7 @@ impl Display for Handshake {
         writeln!(f, "    Protocol version: {}", self.protocol_version)?;
         writeln!(f, "    Address: {}", self.address)?;
         writeln!(f, "    Port: {}", self.port)?;
-        writeln!(f, "    Next State: {:?}", self.next_state)?;
+        write!(f, "    Next State: {:?}", self.next_state)?;
 
         Ok(())
     }
@@ -68,7 +68,7 @@ pub mod response {
     pub struct Response {
         pub version: Version,
         pub players: Players,	
-        pub description: Description,
+        pub description: super::Chat,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub favicon: Option<String>
     }
@@ -93,17 +93,21 @@ pub mod response {
         pub id: String
     }
 
-    #[derive(Serialize)]
-    pub struct Description {
-        pub text: String,
-        pub bold: bool,
-        pub italic: bool,
-        pub underlined: bool,
-        pub strikethrough: bool,
-        pub obfuscated: bool,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub color: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub extra: Option<Vec<Description>>
-    }
+    
+}
+
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct Chat {
+    pub text: String,
+    pub bold: bool,
+    pub italic: bool,
+    pub underlined: bool,
+    pub strikethrough: bool,
+    pub obfuscated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Vec<Chat>>
 }
