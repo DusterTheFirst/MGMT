@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use serde::Serialize;
 
 #[derive(Debug)]
 pub struct Packet {
@@ -42,22 +43,6 @@ impl Display for Handshake {
     }
 }
 
-#[derive(Debug)]
-pub enum NextState {
-    Ping,
-    Connect,
-    Unknown(i32)
-}
-
-impl From<i32> for NextState {
-    fn from(num: i32) -> NextState {
-        match num {
-            1 => NextState::Ping,
-            2 => NextState::Connect,
-            _ => NextState::Unknown(num)
-        }
-    }
-}
 
 /// Response packet structs
 pub mod response {
@@ -74,31 +59,28 @@ pub mod response {
     }
 
     /// The version part of the JSON response to a ping
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone)]
     pub struct Version {
         pub name: String,
         pub protocol: u16
     }
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone)]
     pub struct Players {
         pub max: u16,
         pub online: u16,
         pub sample: Vec<Player>
     }
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone)]
     pub struct Player {
         pub name: String,
         pub id: String
     }
-
-    
 }
 
-use serde::Serialize;
-
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
+/// A minecraft chat object
 pub struct Chat {
     pub text: String,
     pub bold: bool,
@@ -110,4 +92,21 @@ pub struct Chat {
     pub color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra: Option<Vec<Chat>>
+}
+
+#[derive(Debug)]
+pub enum NextState {
+    Ping,
+    Connect,
+    Unknown(i32)
+}
+
+impl From<i32> for NextState {
+    fn from(num: i32) -> NextState {
+        match num {
+            1 => NextState::Ping,
+            2 => NextState::Connect,
+            _ => NextState::Unknown(num)
+        }
+    }
 }
