@@ -1,4 +1,4 @@
-use mcsleep::{AsleepServer, Motd, SleepMode, KickMessage, ServerMode, Chat};
+use mcsleep::{AsleepServer, Motd, SleepMode, KickMessage, ServerMode};
 use std::thread;
 
 fn main() {
@@ -28,6 +28,6 @@ fn main() {
         println!("25566 Awoken");
     });
 
-    sleep_server_thread.join();
-    offline_server_thread.join();
+    sleep_server_thread.join().unwrap();
+    offline_server_thread.join().unwrap();
 }
