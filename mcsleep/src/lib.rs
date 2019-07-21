@@ -9,22 +9,30 @@ use proto::{PacketManipulation, Handshake, NextState, response::{Response, Versi
 
 pub use proto::{Chat, response::{Players, Player}};
 
+pub enum ServerMode {
+    Asleep {
+        motd: Motd,
+        favicon: Option<String>,
+        sleep_mode: SleepMode,
+        kick_msg: KickMessage
+    },
+    Offline {
+        motd: Motd,
+        favicon: Option<String>,
+        kick_msg: KickMessage
+    }
+}
+
 pub struct AsleepServer {
-    description: Chat,
-    kick_msg: KickMessage,
-    favicon: Option<String>,
-    sleep_mode: SleepMode,
+    mode: ServerMode,
     listener: TcpListener,
     started: Instant
 }
 
 impl AsleepServer {
-    pub fn new(motd: Motd, favicon: Option<String>, sleep_mode: SleepMode, kick_msg: KickMessage, port: u16) -> AsleepServer {
+    pub fn new(mode: ServerMode, port: u16) -> AsleepServer {
         AsleepServer {
-            description: motd.into_chat(),
-            favicon,
-            sleep_mode,
-            kick_msg,
+            mode,
             listener: TcpListener::bind(
                 SocketAddr::new(
                     IpAddr::V4(
@@ -52,8 +60,11 @@ impl AsleepServer {
                         NextState::Ping => {
                             self.handle_ping(&mut stream);
 
-                            // Break out of loop if set to wake
-                            if self.sleep_mode == SleepMode::WakeOnPing {
+                            // Break out of loop if set to wake if asleep
+                            if let ServerMode::Asleep {
+                                sleep_mode: SleepMode::WakeOnPing,
+                                ..
+                                } = self.mode {
                                 return;
                             }
                         },
@@ -61,7 +72,10 @@ impl AsleepServer {
                             self.handle_connect(&mut stream);
 
                             // Break out of loop if set to wake
-                            if self.sleep_mode == SleepMode::WakeOnConnect {
+                            if let ServerMode::Asleep {
+                                sleep_mode: SleepMode::WakeOnConnect,
+                                ..
+                                } = self.mode {
                                 return;
                             }
                         },
@@ -82,31 +96,62 @@ impl AsleepServer {
 
         println!("{}\nUsername: {}", login_start, username);
 
-        let kick_msg = match &self.kick_msg {
-            KickMessage::None => String::new(),
-            KickMessage::Custom(message) => serde_json::to_string(message).unwrap(),
-            KickMessage::Default => serde_json::to_string(&Chat {
-                text: String::from("The server is waking up\n\n"),
-                bold: true,
-                italic: false,
-                underlined: false,
-                strikethrough: false,
-                obfuscated: false,
-                color: Some(String::from("green")),
-                extra: Some(vec![
-                    Chat {
-                        // TODO: better reconnect time heuristic
-                        text: format!("Please wait {} seconds before reconecting", 10),
-                        bold: false,
-                        italic: true,
-                        underlined: false,
-                        strikethrough: false,
-                        obfuscated: false,
-                        color: Some(String::from("gold")),
-                        extra: None
-                    }
-                ])
-            }).unwrap(),
+        let kick_msg = match &self.mode {
+            ServerMode::Asleep {
+                sleep_mode: SleepMode::WakeOnConnect,
+                kick_msg: KickMessage::Custom(message),
+                ..
+                } => serde_json::to_string(&message).unwrap(),
+            ServerMode::Asleep {
+                sleep_mode: SleepMode::WakeOnConnect,
+                kick_msg: KickMessage::Default,
+                ..
+                } => serde_json::to_string(&Chat {
+                    text: String::from("The server is waking up\n\n"),
+                    bold: true,
+                    italic: false,
+                    underlined: false,
+                    strikethrough: false,
+                    obfuscated: false,
+                    color: Some(String::from("green")),
+                    extra: Some(vec![
+                        Chat {
+                            // TODO: better reconnect time heuristic
+                            text: format!("Please wait {} seconds before reconecting", 10),
+                            bold: false,
+                            italic: true,
+                            underlined: false,
+                            strikethrough: false,
+                            obfuscated: false,
+                            color: Some(String::from("gold")),
+                            extra: None
+                        }
+                    ])
+                }).unwrap(),
+            ServerMode::Asleep {
+                ..
+                } => String::new(),
+            ServerMode::Offline {
+                kick_msg: KickMessage::None,
+                ..
+                } => String::new(),
+            ServerMode::Offline {
+                kick_msg: KickMessage::Custom(message),
+                ..
+                } => serde_json::to_string(&message).unwrap(),
+            ServerMode::Offline {
+                kick_msg: KickMessage::Default,
+                ..
+                } => serde_json::to_string(&Chat {
+                    text: String::from("The server is offline"),
+                    bold: true,
+                    italic: false,
+                    underlined: false,
+                    strikethrough: false,
+                    obfuscated: false,
+                    color: Some(String::from("red")),
+                    extra: None
+                }).unwrap(),
         };
 
         let chat = proto::string::write(&kick_msg);
@@ -126,32 +171,60 @@ impl AsleepServer {
         println!("{}", RGB(128, 128, 128).paint("RESPONSE"));
         let response = Response {
             version: Version {
-                name: String::from("Server Asleep"),
+                name: match &self.mode {
+                    ServerMode::Asleep { .. } => String::from("Server Asleep"),
+                    ServerMode::Offline { .. } => String::from("Server Offline")
+                },
                 protocol: 0
             },
-            players: Players {
-                max: 0,
-                online: 0,
-                sample: vec![
-                    Player {
-                        name: format!("§cThe server has been asleep for {}", humantime::format_duration(Duration::new(self.started.elapsed().as_secs(), 0))),
-                        id: String::from("00000000-0000-0000-0000-000000000000")
-                    },
-                    Player {
-                        name: match self.sleep_mode {
-                            SleepMode::WakeOnConnect => String::from("§6Join now to start the server"),
-                            SleepMode::WakeOnPing => String::from("§2The server is currently starting")
+            players: match &self.mode {
+                ServerMode::Asleep {
+                    sleep_mode,
+                    ..
+                } => Players {
+                    max: 0,
+                    online: 0,
+                    sample: vec![
+                        Player {
+                            name: format!("§cThe server has been asleep for {}", humantime::format_duration(Duration::new(self.started.elapsed().as_secs(), 0))),
+                            id: String::from("00000000-0000-0000-0000-000000000000")
                         },
-                        id: String::from("00000000-0000-0000-0000-000000000000")
-                    },
-                    Player {
-                        name: String::from("§7You can configure server sleep in the webpanel"),
-                        id: String::from("00000000-0000-0000-0000-000000000000")
-                    }
-                ] 
+                        Player {
+                            name: match sleep_mode {
+                                SleepMode::WakeOnConnect => String::from("§6Join now to start the server"),
+                                SleepMode::WakeOnPing => String::from("§2The server is currently starting")
+                            },
+                            id: String::from("00000000-0000-0000-0000-000000000000")
+                        },
+                        Player {
+                            name: String::from("§7You can configure server sleep in the webpanel"),
+                            id: String::from("00000000-0000-0000-0000-000000000000")
+                        }
+                    ] 
+                },
+                ServerMode::Offline { .. } => Players {
+                    max: 0,
+                    online: 0,
+                    sample: vec![
+                        Player {
+                            name: String::from("§cThe server is offline"),
+                            id: String::from("00000000-0000-0000-0000-000000000000")
+                        },
+                        Player {
+                            name: String::from("§7You can start the server through the webpanel"),
+                            id: String::from("00000000-0000-0000-0000-000000000000")
+                        }
+                    ] 
+                } 
             },
-            description: self.description.clone(),
-            favicon: self.favicon.clone()
+            description: match &self.mode {
+                ServerMode::Asleep { motd, .. } => motd.into_chat(),
+                ServerMode::Offline { motd, .. } => motd.into_chat()
+            },
+            favicon: match &self.mode {
+                ServerMode::Asleep { favicon, .. } => favicon.clone(),
+                ServerMode::Offline { favicon, .. } => favicon.clone()
+            },
         };
         let written_packet = stream.write_response(response).unwrap();
         println!("{}", written_packet);
@@ -182,11 +255,11 @@ pub enum KickMessage {
 }
 
 impl Motd {
-    pub fn into_chat(self) -> Chat {
+    pub fn into_chat(&self) -> Chat {
         match self {
-            Motd::Chat(c) => c,
+            Motd::Chat(c) => c.clone(),
             Motd::Raw(s) => Chat {
-                text: s,
+                text: s.clone(),
                 bold: false,
                 italic: false,
                 underlined: false,

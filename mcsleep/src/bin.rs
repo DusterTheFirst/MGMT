@@ -1,10 +1,33 @@
-use mcsleep::{AsleepServer, Motd, SleepMode, KickMessage};
+use mcsleep::{AsleepServer, Motd, SleepMode, KickMessage, ServerMode, Chat};
+use std::thread;
 
 fn main() {
     // TODO: Keep MOTD and icon of server, just change the version and the players
-    let server = AsleepServer::new(Motd::Raw("A faked Minecraft Server".to_owned()), None, SleepMode::WakeOnConnect, KickMessage::Default, 25565);
+    let sleep_server = AsleepServer::new(ServerMode::Asleep {
+        motd: Motd::Raw("The normal motd of the server".to_owned()),
+        favicon: None,
+        sleep_mode: SleepMode::WakeOnConnect,
+        kick_msg: KickMessage::Default
+    }, 25565);
     
-    server.listen_until_wake();
+    let sleep_server_thread = thread::spawn(move || {
+        sleep_server.listen_until_wake();
 
-    println!("WOKE");
+        println!("25565 Awoken");
+    });
+    
+    let offline_server = AsleepServer::new(ServerMode::Offline {
+        motd: Motd::Raw("The normal motd of the server".to_owned()),
+        favicon: None,
+        kick_msg: KickMessage::Default
+    }, 25566);
+
+    let offline_server_thread = thread::spawn(move || {
+        offline_server.listen_until_wake();
+
+        println!("25566 Awoken");
+    });
+
+    sleep_server_thread.join();
+    offline_server_thread.join();
 }
