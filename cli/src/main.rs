@@ -3,9 +3,12 @@
 use ansi_term::Colour::*;
 use std::net::{SocketAddr, Ipv4Addr, IpAddr, TcpStream};
 use std::io::{BufReader, BufWriter};
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use core::{protocol::local, PacketReadWriter};
+use dialoguer::Input;
+
+use core::{protocol::local, PacketStream};
 
 /// The port to use to communicate with manage-d
 static PORT_LOCAL: u16 = 9895;
@@ -23,10 +26,8 @@ lazy_static! {
 }
 
 fn main() {
-    #[cfg(windows)]
-    unimplemented!();
-
     println!("{}", Yellow.paint("Connecting to manage-d daemon process"));
+
     match TcpStream::connect(*DAEMON_ADDRESS) {
         Ok(stream) => {
             println!("{}", Green.paint("Connected"));
@@ -34,34 +35,67 @@ fn main() {
             let reader = BufReader::new(&stream);
             let writer = BufWriter::new(&stream);
 
-            let mut packet_stream = PacketReadWriter::new(reader, writer);
+            let mut packet_stream = PacketStream::new(reader, writer);
 
             while packet_stream.is_open() {
                 let packet: local::ToCLI = packet_stream.read_packet().unwrap();
 
-                println!("{:?}", packet);
+                println!("{} {}",
+                    RGB(50, 150, 150).paint("[Packet Recieved]"),
+                    RGB(150, 150, 150).paint(format!("{:#?}", packet)));
 
                 match packet {
                     local::ToCLI::Welcome {
                         protocol_version
                     } => {
                         if protocol_version < PROTOCOL_VERSION_LOCAL {
-                            println!("Manage-d out of date");
+                            println!("{}", Yellow.paint("Manage-d too old"));
                             break;
                         } else if protocol_version > PROTOCOL_VERSION_LOCAL {
-                            println!("CLI out of date");
+                            println!("{}", Yellow.paint("CLI too old"));
                             break;
                         }
 
-                        println!("Versions match");
+                        println!("{}", Green.paint("Protocol versions match"));
                         
                         packet_stream.write_packet(local::ToManageD::Ping(*PING_PONG_PAYLOAD)).unwrap();
                     },
                     local::ToCLI::Pong(payload) => {
                         if payload == *PING_PONG_PAYLOAD {
-                            println!("Ping success");
+                            println!("{}", Green.paint("Ping success"));
+
+                            thread::spawn(move || {
+                                loop {
+                                    let input = Input::<String>::new().with_prompt("manage-d >")
+                                        .interact().unwrap();
+                                    let input = input.to_lowercase();
+
+
+                                    let mut input_parts = input.split(" ");
+
+                                    let command = input_parts.next().unwrap();
+
+                                    let args: Vec<_> = input_parts.collect();
+
+                                    match command.as_ref() {
+                                        "?" | "help" if args.len() == 0 => println!("{}\n\n{}",
+                                            RGB(100, 100, 100).paint("Manage-d management daemon configuration CLI"),
+                                            vec![
+                                                "Command        Description",
+                                                "-------        -----------",
+                                                "help [command]      This list of commands"
+                                            ].join("\n")),
+                                        "?" | "help" if args.len() == 1 => println!("Help for {}\n{}", command, match args[0] {
+                                            "help" => "This list of commands",
+                                            _ => "Command not found"
+                                        }),
+                                        "?" | "help" if args.len() > 1 => println!("Usage: help [command]"),
+                                        _ => println!("{}", Red.paint("Command not found... use `?` for help"))
+                                    };
+                                }
+                            });
                         } else {
-                            println!("Invalid payload");
+                            println!("{}", Red.paint("Invalid payload"));
                             break;
                         }
                     }

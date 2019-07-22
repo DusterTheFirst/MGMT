@@ -1,9 +1,10 @@
 use std::net::{TcpListener, SocketAddr, Ipv4Addr, IpAddr, TcpStream};
 use std::io::{self, BufReader, BufWriter};
 use std::thread;
-use core::protocol::local;
+use ansi_term::Colour::*;
 
-use core::PacketReadWriter;
+use core::protocol::local;
+use core::PacketStream;
 
 // use daemonize::{Daemonize, DaemonizeError};
 // use std::fs::File;
@@ -43,9 +44,8 @@ fn main() {
 
 fn start() {
     // println!("Success, daemonized");
-    println!("This is the daemon that manages docker instances of minecraft");
 
-    println!("Listening for CLI connections on port {}", PORT_LOCAL);
+    println!("{}", Blue.paint(format!("Listening for CLI connections on port {}", PORT_LOCAL)));
     
     let listener = TcpListener::bind(
         SocketAddr::new(
@@ -64,18 +64,15 @@ fn start() {
                     handle_client(stream)
                 });
             },
-            Err(e) => eprintln!("{:?}", e)
+            Err(e) => eprintln!("{}", Red.paint(format!("{:?}", e)))
         }
     }
 }
 
 fn handle_client(stream: TcpStream) -> Result<(), io::Error> {
-    println!("New CLI connection: {}", stream.peer_addr().unwrap());
-    
-    let reader = BufReader::new(&stream);
-    let writer = BufWriter::new(&stream);
+    println!("{} {}", Blue.paint("New CLI connection:"), stream.peer_addr().unwrap());
 
-    let mut packet_stream = PacketReadWriter::new(reader, writer);
+    let mut packet_stream = PacketStream::new(BufReader::new(&stream), BufWriter::new(&stream));
 
     // Welcome client
     packet_stream.write_packet(local::ToCLI::Welcome {
@@ -89,9 +86,11 @@ fn handle_client(stream: TcpStream) -> Result<(), io::Error> {
             local::ToManageD::Ping(x) => packet_stream.write_packet(local::ToCLI::Pong(x))?
         };
 
-        println!("{:?}", packet);
+        println!("{} {}",
+            RGB(50, 150, 150).paint("[Packet Recieved]"),
+            RGB(150, 150, 150).paint(format!("{:#?}", packet)));
     }
-    println!("Closed CLI connection: {}", stream.peer_addr()?);
+    println!("{} {}", Yellow.paint("Closed CLI connection: "), stream.peer_addr()?);
 
     Ok(())
 }

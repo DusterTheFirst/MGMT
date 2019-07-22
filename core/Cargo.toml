@@ -10,3 +10,6 @@ edition = "2018"
 serde = { version = "1.0.97", features = ["derive"] }
 bincode = "1.1.4"
 byteorder = "1.3.2"
+
+[dev-dependencies]
+tokio-mockstream = "1.1.0"
