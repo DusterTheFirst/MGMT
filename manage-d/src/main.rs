@@ -1,12 +1,17 @@
 use std::net::{TcpListener, SocketAddr, Ipv4Addr, IpAddr, TcpStream};
-use std::io::prelude::*;
-use std::io;
-use core::protocol;
+use std::io::{self, BufReader, BufWriter};
+use std::thread;
+use core::protocol::local;
+
+use core::PacketReadWriter;
 
 // use daemonize::{Daemonize, DaemonizeError};
 // use std::fs::File;
 
-static PORT: u16 = 9895;
+/// The port used to communicate with the CLI
+static PORT_LOCAL: u16 = 9895;
+/// The protocol version used to communicate with the CLI
+static PROTOCOL_VERSION_LOCAL: u8 = 0;
 
 fn main() {
     // let stdout = File::create("/tmp/daemon.out").unwrap();
@@ -40,22 +45,21 @@ fn start() {
     // println!("Success, daemonized");
     println!("This is the daemon that manages docker instances of minecraft");
 
-    println!("Running on port {}", PORT);
+    println!("Listening for CLI connections on port {}", PORT_LOCAL);
     
     let listener = TcpListener::bind(
         SocketAddr::new(
             IpAddr::V4(
                 Ipv4Addr::new(127,0,0,1)
             ),
-            PORT
+            PORT_LOCAL
         )
     ).expect("Unable to bind to socket");
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                println!("New connection: {}", stream.peer_addr().unwrap());
-                std::thread::spawn(move|| {
+                thread::spawn(move|| {
                     // connection succeeded
                     handle_client(stream)
                 });
@@ -65,14 +69,29 @@ fn start() {
     }
 }
 
-fn handle_client(mut stream: TcpStream) -> Result<(), io::Error> {
-    let data: Vec<u8> = bincode::serialize(&protocol::Local::Welcome).unwrap();
-    stream.write(&data)?;
+fn handle_client(stream: TcpStream) -> Result<(), io::Error> {
+    println!("New CLI connection: {}", stream.peer_addr().unwrap());
+    
+    let reader = BufReader::new(&stream);
+    let writer = BufWriter::new(&stream);
 
-    let data: Vec<u8> = bincode::serialize(&protocol::Local::Ping {
-        time: 1000
-    }).unwrap();
-    stream.write(&data)?;
+    let mut packet_stream = PacketReadWriter::new(reader, writer);
+
+    // Welcome client
+    packet_stream.write_packet(local::ToCLI::Welcome {
+        protocol_version: PROTOCOL_VERSION_LOCAL
+    })?;
+
+    while packet_stream.is_open() {
+        let packet: local::ToManageD = packet_stream.read_packet()?;
+
+        match packet {
+            local::ToManageD::Ping(x) => packet_stream.write_packet(local::ToCLI::Pong(x))?
+        };
+
+        println!("{:?}", packet);
+    }
+    println!("Closed CLI connection: {}", stream.peer_addr()?);
 
     Ok(())
 }

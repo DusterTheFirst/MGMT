@@ -2,17 +2,24 @@
 
 use ansi_term::Colour::*;
 use std::net::{SocketAddr, Ipv4Addr, IpAddr, TcpStream};
-use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-static PORT: u16 = 9895;
+use core::{protocol::local, PacketReadWriter};
+
+/// The port to use to communicate with manage-d
+static PORT_LOCAL: u16 = 9895;
+/// The protocol version used to communicate with manage-d
+static PROTOCOL_VERSION_LOCAL: u8 = 0;
 
 lazy_static! {
     static ref DAEMON_ADDRESS: SocketAddr = SocketAddr::new(
         IpAddr::V4(
             Ipv4Addr::new(127,0,0,1)
         ), 
-        PORT
+        PORT_LOCAL
     );
+    static ref PING_PONG_PAYLOAD: u64 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 }
 
 fn main() {
@@ -21,14 +28,47 @@ fn main() {
 
     println!("{}", Yellow.paint("Connecting to manage-d daemon process"));
     match TcpStream::connect(*DAEMON_ADDRESS) {
-        Ok(mut stream) => {
+        Ok(stream) => {
             println!("{}", Green.paint("Connected"));
 
-            let mut buf = Vec::new();
-            stream.read_to_end(&mut buf).unwrap();
-            // TODO: Parse and seperate messages
-            println!("{:?}", buf);
-            println!("{:?}", bincode::deserialize::<core::protocol::Local>(&buf));
+            let reader = BufReader::new(&stream);
+            let writer = BufWriter::new(&stream);
+
+            let mut packet_stream = PacketReadWriter::new(reader, writer);
+
+            while packet_stream.is_open() {
+                let packet: local::ToCLI = packet_stream.read_packet().unwrap();
+
+                println!("{:?}", packet);
+
+                match packet {
+                    local::ToCLI::Welcome {
+                        protocol_version
+                    } => {
+                        if protocol_version < PROTOCOL_VERSION_LOCAL {
+                            println!("Manage-d out of date");
+                            break;
+                        } else if protocol_version > PROTOCOL_VERSION_LOCAL {
+                            println!("CLI out of date");
+                            break;
+                        }
+
+                        println!("Versions match");
+                        
+                        packet_stream.write_packet(local::ToManageD::Ping(*PING_PONG_PAYLOAD)).unwrap();
+                    },
+                    local::ToCLI::Pong(payload) => {
+                        if payload == *PING_PONG_PAYLOAD {
+                            println!("Ping success");
+                        } else {
+                            println!("Invalid payload");
+                            break;
+                        }
+                    }
+                };
+            }
+
+            println!("{}", Red.paint("Disconnected"));
         },
         Err(e) => {
             let os = os_type::current_platform();
