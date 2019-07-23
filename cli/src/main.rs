@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use dialoguer::Input;
+use dialoguer::{Select, theme::ColorfulTheme};
 
 use core::{protocol::local, PacketStream};
 
@@ -66,32 +66,38 @@ fn main() {
 
                             thread::spawn(move || {
                                 loop {
-                                    let input = Input::<String>::new().with_prompt("manage-d >")
-                                        .interact().unwrap();
-                                    let input = input.to_lowercase();
+                                    let options = [
+                                        "Manage containers",
+                                        "Manage server connection"
+                                    ];
+                                    let choice = Select::with_theme(&ColorfulTheme::default()).items(&options).interact().unwrap();
+                                    println!("{}, {}", choice, options[choice]);
+                                    // let input = Input::<String>::new().with_prompt("manage-d >")
+                                    //     .interact().unwrap();
+                                    // let input = input.to_lowercase();
 
 
-                                    let mut input_parts = input.split(" ");
+                                    // let mut input_parts = input.split(" ");
 
-                                    let command = input_parts.next().unwrap();
+                                    // let command = input_parts.next().unwrap();
 
-                                    let args: Vec<_> = input_parts.collect();
+                                    // let args: Vec<_> = input_parts.collect();
 
-                                    match command.as_ref() {
-                                        "?" | "help" if args.len() == 0 => println!("{}\n\n{}",
-                                            RGB(100, 100, 100).paint("Manage-d management daemon configuration CLI"),
-                                            vec![
-                                                "Command        Description",
-                                                "-------        -----------",
-                                                "help [command]      This list of commands"
-                                            ].join("\n")),
-                                        "?" | "help" if args.len() == 1 => println!("Help for {}\n{}", command, match args[0] {
-                                            "help" => "This list of commands",
-                                            _ => "Command not found"
-                                        }),
-                                        "?" | "help" if args.len() > 1 => println!("Usage: help [command]"),
-                                        _ => println!("{}", Red.paint("Command not found... use `?` for help"))
-                                    };
+                                    // match command.as_ref() {
+                                    //     "?" | "help" if args.len() == 0 => println!("{}\n\n{}",
+                                    //         RGB(100, 100, 100).paint("Manage-d management daemon configuration CLI"),
+                                    //         vec![
+                                    //             "Command        Description",
+                                    //             "-------        -----------",
+                                    //             "help [command]      This list of commands"
+                                    //         ].join("\n")),
+                                    //     "?" | "help" if args.len() == 1 => println!("Help for {}\n{}", command, match args[0] {
+                                    //         "help" => "This list of commands",
+                                    //         _ => "Command not found"
+                                    //     }),
+                                    //     "?" | "help" if args.len() > 1 => println!("Usage: help [command]"),
+                                    //     _ => println!("{}", Red.paint("Command not found... use `?` for help"))
+                                    // };
                                 }
                             });
                         } else {
