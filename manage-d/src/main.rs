@@ -11,7 +11,6 @@ use core::PacketStream;
 
 mod mc;
 
-
 fn main() {
     // TODO: DETECT DAEMON VS CLI START AND ACT ACCORDINGLY
     // let stdout = File::create("/tmp/daemon.out").unwrap();
