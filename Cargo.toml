@@ -2,7 +2,6 @@
 members = [
     "core",
     "backend",
-    "cli",
     "manage-d",
     # "web",
     "mcsleep"
