@@ -5,17 +5,17 @@ authors = ["DusterTheFirst <14093962+DusterTheFirst@users.noreply.github.com>"]
 edition = "2018"
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [[bin]]
 name = "mgmt"
 path = "src/main.rs"
 
 [dependencies]
-daemonize = "0.4.1"
-bincode = "1.1.4"
 ansi_term = "0.12.0"
+bincode = "1.1.4"
+clap = "2.33.0"
+core = { path = "../core" }
+daemonize = "0.4.1"
+termion = "1.5.3"
 reqwest = "0.9.19"
 serde = { version = "1.0.98", features = ["derive"] }
 url = "2.0.0"
-core = { path = "../core" }

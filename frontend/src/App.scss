@@ -1,0 +1,13 @@
+.app {
+    .serverList {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-gap: 20px;
+
+        .serverCard {
+            background: red;
+            border-radius: 20px;
+            padding: 10px 20px;
+        }
+    }
+}

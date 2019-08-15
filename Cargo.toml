@@ -3,6 +3,8 @@ members = [
     "core",
     "backend",
     "manage-d",
-    # "web",
     "mcsleep"
+]
+exclude = [
+    "web"
 ]
